@@ -1,0 +1,11 @@
+# all data files
+*.csv
+*.json
+*.tar
+# all sql files and config
+*.sql
+*.config
+# all pycache
+*/__pycache__/*
+# all jupyter temp
+*/.ipynb_checkpoints/*
