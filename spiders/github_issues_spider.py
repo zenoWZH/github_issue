@@ -127,9 +127,15 @@ def parse_issue_page(html, url, status, proj):
 
 # 循环获取所有issue页面获取所有issue项, 返回issue list
 def get_issues(url):
-    df = pd.read_csv("/mnt/data0/proj_osgeo/gitrepository.csv")
-    #print(df.head(5))
-    proj = str(df.loc[df["Repos"] == url.replace('/issues', '')]["Projects"].values[0]).lower() # Find the project from the repo
+    try:
+        df = pd.read_csv("/mnt/data0/proj_osgeo/gitrepository.csv")
+        #print(df.head(5))
+        proj = str(df.loc[df["Repos"] == url.replace('/issues', '')]["Projects"].values[0]).lower() # Find the project from the repo
+    except BaseException as err:
+        print("Haven't Mined!")
+        df = pd.read_csv("/mnt/data0/proj_osgeo/gitrepository_sub.csv")
+        #print(df.head(5))
+        proj = str(df.loc[df["Repos"] == url.replace('/issues', '')]["Projects"].values[0]).lower() # Find the project from the repo
     
     html = get_url_page(url)
     issue_list, next_page = parse_issue_page(html, url, 'opened', proj)
@@ -159,9 +165,15 @@ def get_issues(url):
     return issue_list
 
 def get_pulls(url):
-    df = pd.read_csv("/mnt/data0/proj_osgeo/gitrepository.csv")
-    #print(df.head(5))
-    proj = str(df.loc[df["Repos"] == url.replace('/pulls', '')]["Projects"].values[0]).lower() # Find the project from the repo
+    try:
+        df = pd.read_csv("/mnt/data0/proj_osgeo/gitrepository.csv")
+        #print(df.head(5))
+        proj = str(df.loc[df["Repos"] == url.replace('/pulls', '')]["Projects"].values[0]).lower() # Find the project from the repo
+    except BaseException as err:
+        print("Haven't Mined!")
+        df = pd.read_csv("/mnt/data0/proj_osgeo/gitrepository_sub.csv")
+        proj = str(df.loc[df["Repos"] == url.replace('/pulls', '')]["Projects"].values[0]).lower() # Find the project from the repo
+
     
     html = get_url_page(url)
     pull_list, next_page = parse_issue_page(html, url, 'opened', proj)
@@ -281,7 +293,7 @@ def get_all_issues_comments(issue_list):
     issue_db = Issue()
     for issue in issue_list:
         #print(issue)
-        timeline, answered, issue_status = get_issue_comments(issue['link'], issue['id'])
+        timeline, answered, issue_status = get_issue_comments(issue['link'], issue['id']) #For temporary update threads
         opened_time = timeline[0]['timestamp']
         latest_time = timeline[-1]['timestamp']
         issue['opened_time'] = opened_time
@@ -297,6 +309,6 @@ def get_all_issues_comments(issue_list):
         #print(issue['status'])
         
         issue_db.save_one_thread(issue)
-        issue_db.save_all_comments(timeline)
+        issue_db.save_all_comments(timeline) #For temporary update threads
     logging.info(issue_list)
     return issue_list

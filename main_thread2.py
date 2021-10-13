@@ -8,7 +8,7 @@ from models.model_pull import Pull
 from pyquery import PyQuery
 
 df = pd.read_csv("../gitrepository_sub.csv")
-github_source_url = df["Repos"].values
+github_source_url = df["Repos"].values#[405:]
 #github_source_url = [
         #'https://github.com/GeoNode/geonode',
         #'https://github.com/GeoNode/django-docker',

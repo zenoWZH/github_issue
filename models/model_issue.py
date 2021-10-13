@@ -143,14 +143,15 @@ class Issue(object):
     def save_all_comments(self, timeline):
         counter = 0
         for comment in timeline:
-            if comment['comment'] == '' or comment['timestamp'] == 'None':
-                continue
+            if comment['comment'] == '' or comment['timestamp'] == 'None' or comment['timestamp'] == 'NaT':
+                comment['timestamp'] = 0 
             counter += 1
 
             self.save_aliase(comment['author'])
             #Timestamp 格式转换
             try:
                 comment['timestamp'] = pd.Timestamp(comment['timestamp'])
+                #print(comment['timestamp'])
             except BaseException as e:
                 print(e)
 

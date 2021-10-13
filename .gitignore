@@ -8,4 +8,4 @@
 # all pycache
 */__pycache__/*
 # all jupyter temp
-*/.ipynb_checkpoints/*
+.ipynb_checkpoints/*
