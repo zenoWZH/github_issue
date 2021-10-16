@@ -10,6 +10,53 @@ from models.model_issue import Issue
 
 # Should get author email here by libs
 
+def time_parse(message_date):
+    
+    if message_date==None :
+        return 0
+    try:
+        message_date = str(message_date)
+    except BaseException as err:
+        print(err, "Return timestamp as 0")
+        return 0
+    try:
+        time_format = "%a %b %d %H:%M:%S %Y"
+        tsp = time.strptime(message_date, time_format)
+    except ValueError as e:
+        try:
+            time_format =  "%a %d %b %Y %H:%M:%S %z "
+            tsp = time.strptime(message_date.split('(')[0].replace(",",""), time_format)
+        except ValueError as e:
+            try:
+                time_format =  "%a %d %b %Y %H:%M:%S %z"
+                tsp = time.strptime(message_date.split('(')[0].replace(",",""), time_format)
+            except ValueError as e:
+                try:
+                    time_format =  "%d %b %Y %H:%M:%S %z"
+                    tsp = time.strptime(message_date.split('(')[0].replace(",",""), time_format)
+                except ValueError as e:
+                    try:
+                        time_format = "%a %d %b %Y %H:%M:%S"
+                        tsp = time.strptime(message_date.split('(')[0][:-5].replace(",",""), time_format)
+                    except ValueError as e:
+                        try:
+                            time_format = "%a %d %b %Y %H:%M "
+                            tsp = time.strptime(message_date.split('(')[0][:-5].replace(",",""), time_format)
+                        except ValueError as e:
+                            try:
+                                time_format = "%a %b %d %H:%M:%S %Y"
+                                tsp = time.strptime(message_date.split('(')[0][:-5].replace(",",""), time_format)
+                            except BaseException as err:
+                                try:
+                                    ttt = pd.Timestamp(message_date)
+                                    return ttt
+                                except BaseException as err:
+                                    print(err, "Return timestamp as 0")
+                                    #flag = True
+                                    return 0
+    time_format = "%Y-%m-%d %H:%M:%S"
+    return(pd.Timestamp(time.strftime(time_format, tsp)))
+
 def get_status_page(document):
     #html = get_url_page(pull_url)
     try:
@@ -70,14 +117,17 @@ def parse_issue_page(html, url, status, proj):
         head = item('a').filter('.h4')
         # issue信息项
         id     = re.findall(r"\d+", item.attr('id'))[0]
+
         title  = head.text()
-        type   = item('.IssueLabel').text()
+        category   = item('.IssueLabel').text()
         link   = urljoin(url, head.attr('href'))
+        if id!=link.split('/')[-1]:
+            print("Wrong ID!")
         # time   = item('span').filter('.opened-by').children('relative-time').attr('datetime')
         author = item('.opened-by a').text()
         # 没有添加标签的类别，使用default代替
-        if type == '':
-            type = 'default'
+        if category == '':
+            category = 'default'
 
         #判断是issue还是pull,得到repo实际名称
         i = 0
@@ -94,6 +144,7 @@ def parse_issue_page(html, url, status, proj):
             'id'      :  proj + '#' + path + "#" + id,
             'source'  :  proj,
             'title'   :  title.replace("'", "''"),
+            'category':  category,
             'type'    :  issue_type,
             'link'    :  link,
             'answered':  'no',
@@ -103,7 +154,7 @@ def parse_issue_page(html, url, status, proj):
         }
         if issue_type!="issues":
             item_info['id'] = proj + '#' + path + "#" + issue_type + id
-        
+        #print(item_info['id'])
         #Low efficiency, moved to get_issue_comments
         #issue_status = get_status_page(link)
         #if issue_status != None :
@@ -132,7 +183,7 @@ def get_issues(url):
         #print(df.head(5))
         proj = str(df.loc[df["Repos"] == url.replace('/issues', '')]["Projects"].values[0]).lower() # Find the project from the repo
     except BaseException as err:
-        print("Haven't Mined!")
+        #print("Haven't Mined!")
         df = pd.read_csv("/mnt/data0/proj_osgeo/gitrepository_sub.csv")
         #print(df.head(5))
         proj = str(df.loc[df["Repos"] == url.replace('/issues', '')]["Projects"].values[0]).lower() # Find the project from the repo
@@ -170,7 +221,7 @@ def get_pulls(url):
         #print(df.head(5))
         proj = str(df.loc[df["Repos"] == url.replace('/pulls', '')]["Projects"].values[0]).lower() # Find the project from the repo
     except BaseException as err:
-        print("Haven't Mined!")
+        #print("Haven't Mined!")
         df = pd.read_csv("/mnt/data0/proj_osgeo/gitrepository_sub.csv")
         proj = str(df.loc[df["Repos"] == url.replace('/pulls', '')]["Projects"].values[0]).lower() # Find the project from the repo
 
@@ -229,7 +280,7 @@ def get_pull_detail(pull_url):
         comment_item = {
             'author'    : author,
             'header'    : header,
-            'timestamp' : timestamp,
+            'timestamp' : time_parse(timestamp),
             'comment'   : comment_text
         }
 
@@ -247,7 +298,7 @@ def get_pull_detail(pull_url):
     comment_item = {
         'author': pull_author,
         'header': "Record Merged or Closed time",
-        'timestamp': closed_time,
+        'timestamp': time_parse(closed_time),
     }
     timeline.append(comment_item)
 
@@ -278,7 +329,7 @@ def get_issue_comments(issue_url, issue_id):
             'issue_id'  : issue_id,
             'author'    : author,
             'header'    : header,
-            'timestamp' : timestamp,
+            'timestamp' : time_parse(timestamp),
             'comment'   : comment_text
         }
         #print(comment_item)

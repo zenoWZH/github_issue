@@ -84,9 +84,9 @@ class Issue(object):
                 self.db.rollback()
 
     def save_one_thread(self, issue):
-        sql = """INSERT INTO thread(thread_id, thread_name, project_id, thread_type, thread_status)
-                                         values('%s', '%s', '%s', '%s', '%s')""" % (
-            issue['id'], issue['title'], issue['source'], issue['type'], issue['status'])
+        sql = """INSERT INTO thread(thread_id, thread_name, project_id, thread_type, thread_status, thread_category)
+                                         values('%s', '%s', '%s', '%s', '%s', '%s')""" % (
+            issue['id'], issue['title'], issue['source'], issue['type'], issue['status'], issue['category'])
 
         try:
             self.db.commit()
@@ -97,8 +97,8 @@ class Issue(object):
             try:  # 插入失败表示数据库存在此issue，转为update更新
                 self.db.commit()
                 #print("Exception: %s" % e)
-                sql_update = """UPDATE thread SET thread_name='%s', project_id='%s', thread_type='%s', thread_status='%s' WHERE thread_id='%s'""" % (
-                    issue['title'], issue['source'], issue['type'], issue['status'], issue['id'])
+                sql_update = """UPDATE thread SET thread_name='%s', project_id='%s', thread_type='%s', thread_status='%s', thread_category='%s' WHERE thread_id='%s'""" % (
+                    issue['title'], issue['source'], issue['type'], issue['status'], issue['category'], issue['id'])
                 self.cursor.execute(sql_update)
                 self.db.commit()
                 #print("%s : Update successfully" % issue['id'])

@@ -26,6 +26,7 @@ def add_aliase(aliase_id, mailaddress, source):
         logging.error("Database connect error:%s" % e)
 
     #aliase_id, mailaddress = aliase.replace('<', ' ').replace('>', ' ').split()
+    aliase_id = aliase_id.replace('\'','\'\'')
     sql_aliase = """INSERT INTO aliase(aliase_id, mailaddress, source)
                                         values('%s', '%s', '%s')""" % (aliase_id, mailaddress, source)
     try:
@@ -38,22 +39,24 @@ def add_aliase(aliase_id, mailaddress, source):
         pass
     return aliase_id
 
-df = pd.read_csv("../gitrepository.csv")
-github_source_url = df["Repos"].values
+df = pd.read_csv("../gitrepository_sub.csv")
+github_source_url = df["Repos"].values[569:]
 
 # url for the git repo to analyze
 for url in github_source_url:
     repo_url = url
-    # directory for letting Perceval clone the git repo
-    repo_dir = '/tmp/temp.git'
     counter = 0
+    # directory for letting Perceval clone the git repo
+    repolast = url.split('/')[-1]
     proj_name = str(df.loc[df["Repos"] == url.replace('/issues', '')]["Projects"].values[0]).lower()
     repo_name = repo_url.split('/')[-1]
+    repo_dir = '/mnt/data0/proj_osgeo/temp/'+proj_name+'/'+str(repolast)+'.git'
+    
 
     # create a Git object, pointing to repo_url, using repo_dir for cloning
     repo = Git(uri=repo_url, gitpath=repo_dir)
     repo_data = repo.fetch()
-    
+    print("Succesfully get repo:"+repo_dir)
     #print(type(repo_data))
     # Fetch return a generator
     
@@ -89,14 +92,16 @@ for url in github_source_url:
 
         all_commits.append(commit['data'])
 
-
-    print(counter)
-
+    print("Get all commits:", counter)
+    if counter==0:
+        continue
     df_all_commits = pd.DataFrame(all_commits)
+    df_all_commits = df_all_commits[['commit', 'parents', 'refs', 'Author', 'AuthorDate', 'Commit',
+       'CommitDate', 'message', 'files', 'proj_id', 'repo', 'commit_id',
+       'author_id', 'author_email', 'commiter_id', 'commiter_email']]
 
     df_all_commits.columns = ['commit_sha', 'commit_parents', 'commit_refs', 'author', 'author_timestamp', 'commiter',
-       'commit_timestamp', 'commit_message', 'files', 'proj_id', 'repo', 'commit_id','author_aliase_id', 'author_email', 'commiter_aliase_id', 'commiter_email', 
-       'Merge', 'Signed-off-by']
+       'commit_timestamp', 'commit_message', 'files', 'proj_id', 'repo', 'commit_id','author_aliase_id', 'author_email', 'commiter_aliase_id', 'commiter_email'] 
     
     df_all_commits['commit_timestamp'].apply(lambda x: pd.Timestamp(x))
     df_all_commits['author_timestamp'].apply(lambda x: pd.Timestamp(x))
@@ -104,11 +109,20 @@ for url in github_source_url:
     df_psql_commits = df_all_commits[['commit_id','proj_id','author_aliase_id', 'author_timestamp', 
     'commiter_aliase_id', 'commit_timestamp', 'commit_message', 'commit_sha', 'commit_parents', 'commit_refs']].astype(str)
 
-    df_psql_aliases = df_all_commits[['author_aliase_id', 'author_email']].rename(\
-        columns={'author_aliase_id':'aliase_id', 'author_email': 'mailaddress'}).append( \
-    df_all_commits[['commiter_aliase_id', 'commiter_email']].rename( \
-        columns={'commiter_aliase_id':'aliase_id', 'commiter_email': 'mailaddress'}), ignore_index=True).drop_duplicates().astype(str)
+    df_psql_aliases = pd.DataFrame()
+    df_psql_aliases['aliase_id'] = df_psql_commits['author_aliase_id'].append(df_psql_commits['commiter_aliase_id'], ignore_index=True)
+    df_psql_aliases['mailaddress'] = df_all_commits['author_email'].append(df_all_commits['commiter_email'], ignore_index=True)
+    df_psql_aliases = df_psql_aliases.drop_duplicates().astype(str)
     df_psql_aliases['source'] = 'Github'
+
+    df_psql_aliases['source'] = 'Github'
+    for col in df_psql_aliases.columns.values :
+        df_psql_aliases[col]= df_psql_aliases[col].apply(lambda x : x.encode('utf-8','ignore').decode("utf-8"))
+    for aliase_id, mailaddress, source in df_psql_aliases.values :
+        #print(aliase_id, mailaddress, source)
+        add_aliase(aliase_id, mailaddress, source)
+    print("aliase updated")
+    #continue   #USE TO UPDATE ALL ALIASES!!!!!!
 
     all_filelogs = []
     file_counter = 0
@@ -124,19 +138,30 @@ for url in github_source_url:
         #break
         
     df_all_filelogs = pd.DataFrame(all_filelogs)
-    df_all_filelogs.head(10)
+    df_all_filelogs = df_all_filelogs[['modes', 'indexes', 'action', 'file', 'added', 'removed', 'commit_id', 'id']]
+    print("Get all filelogs:", file_counter)
 
     df_all_filelogs.columns = ['modes', 'indexes', 'action', 'file_name', 'added', 'removed', 'commit_id',
-       'filelog_id', 'newfile']
+       'filelog_id']
     
-    df_psql_filelogs = df_all_filelogs[['filelog_id', 'commit_id', 'modes', 'indexes', 'action', 'file_name', 'added', 'removed', 'newfile']].astype(str)
+    df_psql_filelogs = df_all_filelogs[['filelog_id', 'commit_id', 'modes', 'indexes', 'action', 'file_name', 'added', 'removed']].astype(str)
 
     psql_engine = create_engine("postgresql://"+USER+":"+PASSWORD+"@"+HOST+":"+str(PORT)+"/"+DATABASE)
 
-    
-    df_psql_filelogs.to_sql(name='filelogs', con = psql_engine, if_exists= 'append', index= False)
-    
-    for aliase_id, mailaddress, source in df_psql_aliases.values :
-        add_aliase(aliase_id, mailaddress, source)
 
-    df_psql_commits.to_sql(name='commit', con = psql_engine, if_exists= 'append', index= False)
+    for col in df_psql_commits.columns.values :
+        df_psql_commits[col]= df_psql_commits[col].apply(lambda x : x.encode('utf-8','ignore').decode("utf-8"))
+    try:
+        df_psql_commits.to_sql(name='commit', con = psql_engine, if_exists= 'append', index= False)
+        print("commit added")
+    except BaseException as err:
+        print(err)
+    
+    try:
+        df_psql_filelogs.to_sql(name='filelog', con = psql_engine, if_exists= 'append', index= False)
+        print("filelogs added")
+    except BaseException as err:
+        print(err)
+        
+    del df_all_commits, df_all_filelogs, df_psql_aliases, df_psql_commits, df_psql_filelogs
+    gc.collect()
