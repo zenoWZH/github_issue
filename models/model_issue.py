@@ -1,11 +1,14 @@
 from config.database import HOST, PORT, USER, PASSWORD, DATABASE
 import psycopg2
 import datetime
-import logging
+#import logging
 from pyquery import PyQuery
 import pandas as pd
 
 utc_format = '%Y-%m-%dT%H:%M:%SZ'
+
+def escape(s):
+    return (s).replace("'", "''").replace('%', '%%')#.replace('<','').replace('>','')
 
 class Issue(object):
 
@@ -16,14 +19,14 @@ class Issue(object):
 
 
     # 构造函数，初始化并连接数据库
-    def __init__(self, Flevel=logging.DEBUG):
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.DEBUG)
-        fmt = logging.Formatter('[%(asctime)s] [%(levelname)s] %(message)s', '%Y-%m-%d %H:%M:%S')
-        fh = logging.FileHandler(__name__)
-        fh.setFormatter(fmt)
-        fh.setLevel(Flevel)
-        self.logger.addHandler(fh)
+    def __init__(self): #Flevel=logging.DEBUG):
+        #self.logger = logging.getLogger(__name__)
+        #self.logger.setLevel(logging.DEBUG)
+        #fmt = logging.Formatter('[%(asctime)s] [%(levelname)s] %(message)s', '%Y-%m-%d %H:%M:%S')
+        #fh = logging.FileHandler(__name__)
+        #fh.setFormatter(fmt)
+        #fh.setLevel(Flevel)
+        #self.logger.addHandler(fh)
         try:
             self.db = psycopg2.connect(
                 host=HOST,
@@ -34,59 +37,14 @@ class Issue(object):
                 #charset='utf8')
             self.cursor = self.db.cursor()
         except Exception as e:
-            logging.error("Database connect error:%s" % e)
+            print("Database connect error:%s" % e)
+            #logging.error("Database connect error:%s" % e)
 
-
-    # 批量保存issues
-    def save_all(self, issue_list):
-
-        for issue in issue_list:
-            sql = """INSERT INTO issue(title, source, type, No, opened_time, latest_time, comment_number, answered, status, author, link, content)
-                             values ('%s', '%s', '%s','%s', '%s', '%s', '%s', '%s','%s', '%s', '%s')""" % (
-            issue['title'], issue['source'], issue['type'], issue['id'], issue['opened_time'], issue['latest_time'], issue['comment_number'], issue['answered'], issue['status'], issue['link'], issue['content'])
-
-            try:
-                self.cursor.execute(sql)
-                self.db.commit()
-            except:
-                try:  # 插入失败表示数据库存在次issue，转为update更新
-                    sql_update = """UPDATE issue SET title='%s', type='%s', opened_time='%s', latest_time='%s', comment_number='%s', answered='%s', status='%s', content='%s' WHERE No='%s'""" % (
-                    issue['title'], issue['type'], issue['opened_time'], issue['latest_time'], issue['comment_number'], issue['answered'], issue['status'], issue['content'], issue['id'])
-                    self.cursor.execute(sql_update)
-                    self.db.commit()
-                    #print("更新完成")
-                except Exception as e:
-                    logging.error("update error:%s" % e)
-                    self.db.rollback()
-
-
-    # 保存一条issue记录
-    def save_one(self, issue):
-        sql = """INSERT INTO issue(title, source, type, No, opened_time, latest_time, comment_number, answered, status, author, link, content)
-                                         values('%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')""" % (
-            issue['title'], issue['source'], issue['type'], issue['id'], issue['opened_time'], issue['latest_time'], issue['comment_number'], issue['answered'], issue['status'], issue['author'], issue['link'], issue['content'])
-
-        try:
-            self.cursor.execute(sql)
-            self.db.commit()
-            #print("%s : Insert successfully" % issue['id'])
-        except Exception as e:
-            try:  # 插入失败表示数据库存在次issue，转为update更新
-                #print("Exception: %s" % e)
-                sql_update = """UPDATE issue SET title='%s', type='%s', opened_time='%s', latest_time='%s', comment_number='%s', answered='%s', status='%s', content='%s' WHERE No='%s'""" % (
-                    issue['title'], issue['type'], issue['opened_time'], issue['latest_time'], issue['comment_number'], issue['answered'], issue['status'], issue['content'], issue['id'])
-                self.cursor.execute(sql_update)
-                self.db.commit()
-                #print("%s : Update successfully" % issue['id'])
-            except Exception as err:
-                print("Exception: %s" % err)
-                logging.error("update error:%s" % err)
-                self.db.rollback()
 
     def save_one_thread(self, issue):
         sql = """INSERT INTO thread(thread_id, thread_name, project_id, thread_type, thread_status, thread_category)
                                          values('%s', '%s', '%s', '%s', '%s', '%s')""" % (
-            issue['id'], issue['title'], issue['source'], issue['type'], issue['status'], issue['category'])
+            issue['id'], issue['title'], issue['source'], issue['type'], issue['status'], escape(issue['category']))
 
         try:
             self.db.commit()
@@ -98,13 +56,13 @@ class Issue(object):
                 self.db.commit()
                 #print("Exception: %s" % e)
                 sql_update = """UPDATE thread SET thread_name='%s', project_id='%s', thread_type='%s', thread_status='%s', thread_category='%s' WHERE thread_id='%s'""" % (
-                    issue['title'], issue['source'], issue['type'], issue['status'], issue['category'], issue['id'])
+                    issue['title'], issue['source'], issue['type'], issue['status'], escape(issue['category']), issue['id'])
                 self.cursor.execute(sql_update)
                 self.db.commit()
                 #print("%s : Update successfully" % issue['id'])
             except Exception as err:
-                print("Exception: %s" % err)
-                logging.error("update error:%s" % err)
+                print("update error:%s" % err)
+                #logging.error("update error:%s" % err)
                 self.db.rollback()
 
     #寻找github账户的邮箱
@@ -173,8 +131,8 @@ class Issue(object):
                     self.db.commit()
                     #print("更新完成", comment['issue_id']+'#'+str(counter) )
                 except Exception as err:
-                    print("Exception: %s" % err, comment['issue_id']+'#'+str(counter))
-                    logging.error("update error:%s" % err)
+                    print("update error:%s" % err, comment['issue_id']+'#'+str(counter))
+                    #logging.error("update error:%s" % err)
                     self.db.rollback()
 
 

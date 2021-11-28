@@ -1,4 +1,4 @@
-import logging
+#import logging
 import pandas as pd
 import re
 import requests
@@ -71,7 +71,7 @@ def get_status_page(document):
 # 获取html页面文本
 def get_url_page(url):
     response = requests.get(url)
-    logging.info(response.status_code)
+    #logging.info(response.status_code)
 
     if response.status_code == 200:
         return response.text
@@ -80,14 +80,14 @@ def get_url_page(url):
             print("Wait 3min "+url)
             time.sleep(180)
             response = requests.get(url)
-            logging.info(response.status_code)
+            #logging.info(response.status_code)
             if response.status_code == 200:
                 return response.text
             elif response.status_code == 429:
                 print("Wait 30min "+url)
                 time.sleep(1800)
                 response = requests.get(url)
-                logging.info(response.status_code)
+                #logging.info(response.status_code)
             else:
                 #print(response.text) 
                 raise Exception("get url page error: responce status code" + str(response.status_code))
@@ -163,11 +163,11 @@ def parse_issue_page(html, url, status, proj):
         issue_list_per_page.append(item_info)
         #print(item_info['id'])
 
-    logging.info(issue_list_per_page)
+    #logging.info(issue_list_per_page)
 
     # 下一页链接
     next_page_link = document('.next_page').attr('href')
-    logging.info(next_page_link)
+    #logging.info(next_page_link)
 
     # 判断下一页链接是否disabled
     if next_page_link != None:
@@ -212,7 +212,7 @@ def get_issues(url):
         issue_list += issue_list_per_page
 
 
-    logging.info(issue_list)
+    #logging.info(issue_list)
     return issue_list
 
 def get_pulls(url):
@@ -249,7 +249,7 @@ def get_pulls(url):
         pull_list += pull_list_per_page
 
 
-    logging.info(pull_list)
+    #logging.info(pull_list)
     return pull_list
 
 
@@ -302,7 +302,7 @@ def get_pull_detail(pull_url):
     }
     timeline.append(comment_item)
 
-    logging.info(timeline)
+    #logging.info(timeline)
     return timeline, answered, status
 
 
@@ -361,5 +361,5 @@ def get_all_issues_comments(issue_list):
         
         issue_db.save_one_thread(issue)
         issue_db.save_all_comments(timeline) #For temporary update threads
-    logging.info(issue_list)
+    #logging.info(issue_list)
     return issue_list
